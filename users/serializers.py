@@ -1,12 +1,21 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from rest_framework_simplejwt.tokens import RefreshToken
+from users.models import Profile
+
+class ProfileSerializer(serializers.ModelSerializer):
+   
+    class Meta:
+        model = Profile
+        fields = '__all__'
 
 class UserSerializer(serializers.ModelSerializer):
     #creating custom fields
     name = serializers.SerializerMethodField(read_only=True)
     isAdmin = serializers.SerializerMethodField(read_only=True)
     _id = serializers.SerializerMethodField(read_only=True)
+   
+
 
     class Meta:
         model = User
@@ -31,13 +40,30 @@ class UserSerializer(serializers.ModelSerializer):
     
 class UserSerializerWithToken(UserSerializer): 
     token = serializers.SerializerMethodField(read_only=True)
+    profile = ProfileSerializer(many=False, read_only = True)
     
 
     class Meta:
         model = User
-        fields = ['id','_id','username','email', 'name', 'isAdmin','token']
+        fields = ['id','_id','username','email', 'name', 'isAdmin','token','profile']
+    
+
+    def get__id(self, obj):
+        return obj.id
+
+    def get_isAdmin(self, obj):
+        return obj.is_staff
+
+    def get_name(self, obj):
+        name = obj.first_name
+        if name == '':
+            name = obj.email
+
+        return name
     
     #generate another token with the initial response during serialization after registration
     def get_token(self, obj):
         token = RefreshToken.for_user(obj)
         return str(token.access_token)
+
+
