@@ -1,3 +1,4 @@
+from sqlite3 import IntegrityError
 from django.contrib.auth.models import User
 from django.contrib.auth.hashers import make_password
 from users.serializers import UserSerializer,UserSerializerWithToken,ProfileSerializer
@@ -55,8 +56,12 @@ def registerUser(request):
 
         return Response(response_data)
     
-    except:
+    except IntegrityError as e:
         message = {'detail': 'User with this email already exists'}
+        return Response(message, status=status.HTTP_400_BAD_REQUEST)
+    
+    except KeyError as e:
+        message = {'detail': f'Missing field: {e.args[0]}'}
         return Response(message, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['PUT'])
@@ -103,8 +108,20 @@ def getUserProfile(request):
     user = request.user
     try:
         profile = user.profile
-        serializer = ProfileSerializer(profile)
-        return Response(serializer.data)
+
+        # Serialize the User data
+        user_serializer = UserSerializer(user, many=False)
+        user_data = user_serializer.data
+        print(user_data)
+        # Manually update the user_data dictionary with profile information
+        user_data["profile"] = {
+            "id": profile.id,
+            "location": profile.location,
+            "interests": profile.interests,
+            "image_url": request.build_absolute_uri(profile.image_url.url) if profile.image_url else None,
+        }
+        print(user_data)
+        return Response(user_data)
     except Profile.DoesNotExist:
         return Response({"message": "Profile not found"}, status=404)
 
